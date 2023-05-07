@@ -1,0 +1,29 @@
+main{
+    max-width: 800px;
+    margin: auto;
+}
+
+.pmd{
+    text-align: center;
+}
+
+.pmd img{
+    width: 150px;
+    height: 150px;
+    margin-bottom: 12px;
+    border-radius: 50%;
+}
+
+.threads{
+    padding: 12px;
+}
+
+.thread{
+    display: block;
+    margin-bottom: 12px;
+    word-break: break-word;
+}
+
+.threadmd{
+    color: gray;
+}

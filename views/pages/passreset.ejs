@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no, maximum-scale=1, user-scalable=0">
+		<meta name="keywords" content="Exploits, dll, hacks, cheats, developers, social, media" />
+        <meta name="description" content="Use your password reset token to change your password here." />
+	
+		<title>Password Reset Request - <%- powForum.name %></title>
+		
+		<% include ../partials/headimps %>
+        <link href="/css/register.css?v=22" rel="stylesheet" type="text/css">
+        
+		<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+	</head>
+	<body class="container">
+        <main style="display: flex; min-height: 100vh;">
+            <div id="registerform" class="theme1 round border1 padding gapchildren">
+                <h1><%- powForum.name %> Account Password Reset</h1>
+                <div id="register_passwords">
+                    <div class="register_inputfield lessgapchildren" style="margin-right: 5px">
+                        <p>Password</p>
+                        <input id="password" class="theme2 border1 round padding" type="password"  placeholder="Password"/>
+                        <div class="register_highlight"></div>
+                    </div>
+                    <br/>
+                    <div class="register_inputfield lessgapchildren" style="margin-left: 5px">
+                        <p>Confirm</p>
+                        <input id="confirmpassword" class="theme2 border1 round padding" type="password" placeholder="Confirm"/>
+                        <div class="register_highlight"></div>
+                    </div>
+                </div>
+                <button class="theme2 border1 round padding" onclick="ResetPassword()">Submit</button>
+                <a href="/login">Back to Login</a>
+                <p id="req_Response" style="text-align: center; color: var(--red);"></p>
+            </div>
+		</main>
+
+		<script>
+            function ResetPassword(){
+                let password = $("#password").val()
+                let confirmPassword = $("#confirmpassword").val()
+
+                if(password !== confirmPassword) return document.getElementById('req_Response').innerHTML = "Password and confirm password do not match"
+
+                fetch('/api/account/recovery/passreset', {
+					method: "POST",
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+					body: JSON.stringify({
+                        token: '<%= token %>',
+                        password: $("#password").val(),
+                    }),
+				})
+				.then(res => res.json())
+                .then(res => {
+                    if(res.success){
+                        document.querySelector("#req_Response").style.color = "green"
+                        document.getElementById('req_Response').innerHTML = "Success!"
+                        setTimeout(function(){
+                            document.location.href = "/login"
+                        }, 1500)
+                    } 
+                    else {
+                        document.getElementById('req_Response').innerHTML = res.reason || 'Unknown error occured...'
+                    }
+                })
+				.catch((e)=>{
+                    console.error(e)
+                    document.getElementById('req_Response').innerHTML = "Failed to contact the server."
+                })
+			}
+		</script>
+	</body>
+</html>

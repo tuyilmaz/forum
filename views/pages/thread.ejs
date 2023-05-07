@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no, maximum-scale=1, user-scalable=0">
+		<meta name="keywords" content="<%- powForum.name %>, forum thread, forum, social, media" />
+        <meta name="description" content="<%= threadData.replies[0].content.substr(0,120) %>..." />
+	
+		<title><%- threadData.title %> - <%- powForum.name %></title>
+		
+		<% include ../partials/headimps %>
+		<link href="/css/thread.css?v=22&ib=7" rel="stylesheet" type="text/css">
+		<link href="/css/prism.css" rel="stylesheet" type="text/css">
+        
+        <script type="text/javascript" src="/js/timestamp.js?c=1"></script>
+        <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?compat=recaptcha" async defer></script>
+        <script src="https://cdn.tiny.cloud/1/9uay7qr7nh5d5awlk1pnvh19gxm01if2wj3eo9zbeyymy2wu/tinymce/5/tinymce.min.js"></script>
+	</head>
+	<body class="container">
+        <% if(threadData.canChangeForum){ %>
+        <div id="ForumChanger">
+            <div class="theme1 round border1 lessgapchildren">
+                <% categoryGroups.forEach(categoryGroup => { %>
+                <h3><%- categoryGroup.name %></h3>
+                <% let categoryList = categories.filter(category => category.category === categoryGroup.name) %>
+                <% categoryList.forEach(category => { %>
+                <button class="theme2 border1" data-category="<%= category._id %>"><%- category.name %></button>
+                <% }) %>
+                <% }) %>
+                <button class="theme2 border1" onclick="$('#ForumChanger').hide('fast')">Cancel</button>
+            </div>
+        </div>
+        <% } %>
+		<% include ../partials/global %>
+        <div class="mainxchat">
+            <main class="screenPadding gapchildren" style="max-width: 1100px; margin: auto">
+                <div class="theme2 round border1 padding">
+                    <p>
+                        <a href="/">Categories</a> > 
+                        <a href="/#<%- threadData.category.category %>"><%- threadData.category.category %></a> >
+                        <a href="/c/<%= threadData.category._id %>"><%- threadData.category.name %></a> >
+                    </p>
+                    <h1 style="display: flex; justify-content: space-between;">
+                        <span id="topic"><%- threadData.title %></span>
+                        <% if(threadData.canEditTopic){ %><span id="btnEditTopic">Edit</span><% } %>
+                    </h1>
+                </div>
+                <div style="text-align: right">
+                    <% if(threadData.canChangeForum){ %>
+                    <button id="btn_changeforum" class="theme1 round border1 btnThreadControl" onclick="$('#ForumChanger').css('display', 'flex')">Change Forum</button>
+                    <% } %>
+
+                    <% if(threadData.canChangeForum){ %>
+                    <button class="theme1 round border1 btnThreadControl" onclick="ToggleThreadLock(<%= !threadData.locked %>)"><% if(threadData.locked){ %>Unlock<% }else{ %>Lock<% } %></button>
+                    <% } %>
+
+                    <% if(clientIsMod){ %>
+                    <button class="theme1 round border1 btnThreadControl" onclick="ToggleThreadPin(<%= !threadData.pinned %>)"><% if(threadData.pinned){ %>Unpin<% }else{ %>Pin<% } %></button>
+                    <% } %>
+                    <% if(threadData.canReply){ %>
+                    <a href="#replyform" class="theme1 round border1 btn_newrelpy">New Reply</a>
+                    <% } %>
+                </div> 
+                <% var lastReplier = null; %>
+                <% threadData.replies.forEach((obj, index) => { %>
+                <% var nextUId = threadData.replies[index+1] && threadData.replies[index+1].uid %>
+                <!--Open new reply group if previous replier is different-->
+                <% if(lastReplier !== obj.uid) { %>
+                <div class="theme1 replygroup round border1">
+                    <div class="theme2 thread_replierdata">
+                        <a href="/profile?uid=<%= obj.uid %>"><div style="background-image: url('<%= obj.account.profilepicture %>')" class="thread_pfp"></div></a>
+                        <div class="userdesc" style="flex: 1">
+                            <a href="/profile?uid=<%= obj.uid %>"><p class="username <%= obj.account.highestRole %>">
+                                <% if(obj.account.isOnline){ %>
+                                <span class="online-icon"title="online"></span>
+                                <% } %>
+                                <%= obj.account.username %>
+                            </p></a>
+                            <p class="usertitle"><%- obj.account.alias || "" %></p>
+                            <% if(obj.account.badge){ %><img src="<%- obj.account.badge %>" class="badge" alt="<%= obj.account.highestRole %>"/><% } %>
+                        </div>
+                        <div class="userstats">
+                            <p>Posts: <%= obj.account.totalposts || "0" %></p>
+                            <p>Threads: <%= obj.account.totalthreads || "0" %></p>
+                            <p>Joined: <%= obj.account.joinDate || "?" %></p>
+                            <p>Reputation: <span class="<% if(obj.account.reputation>0){ %>good<% } %><% if(obj.account.reputation<0){ %>bad<% } %>"><%= obj.account.reputation %></span></p>
+                        </div>
+                    </div>
+                <% } %>
+                <!--Reply Metadata-->
+                <div class="replycard" data-trid="<%= obj._id %>">
+                    <div style="position: relative">
+                        <p class="note paddingx">
+                            <% if(ogTRID === obj._id){ %>
+                                <!--OP-->
+                                Posted 
+                            <% } else if(lastReplier === obj.uid){ %>
+                                <!--Previous replier, so stack-->
+                                Added
+                            <% } else { %>
+                                <!--New reply-->
+                                Replied 
+                            <% } %>
+                            <!--When this reply was made-->
+                            <script>document.write(TimeStamp.Beautify('<%= obj.date %>'))</script>
+                        </p>
+                    </div>
+
+                    <!--Reply Content-->
+                    <div class="replyEditor"></div>
+                    <div 
+                    class="thread_replycontent padding <% if(ogTRID !== obj._id){ %>limitReplyHeight<% } %>"
+                    <% if(obj.reputation <= 0){ %>
+                    onclick="warnLinks(event)"
+                    <% } %>
+                    ><%- obj.content %></div>
+                    <div class="replyEditorControls hidden padding">
+                        <button name="cancel" class="theme2 round border1 padding">Cancel</button>
+                        <button name="save" class="theme2 round border1 padding">Save Changes</button>
+                    </div>
+
+                    <!--Comments-->
+                    <% if(obj.comments.length){ %>
+                    <div class="comments padding lessgapchildren round">
+                        <p class="note">Comments</p>
+                        <div class="commentGroups gapchildren">
+                            <% let lastCommenter = null; %>
+                            <% let lastCommentId = null; %>
+                            <% obj.comments.forEach((comment, index) => { %>
+                            <% let nextCommentertUid = obj.comments[index+1] && obj.comments[index+1].uid %>
+                            <!--Open new reply group if previous replier is different-->
+                            <% if(lastCommenter !== comment.uid) { %>
+                            <div class="comment replygroup">
+                                <a class="commentPfp" style="background-image: url('<%= comment.account.profilepicture %>')" href="/profile?uid=<%= comment.uid %>"></a>
+                                <div>
+                                    <p class="verticalCenter lessgapchildrenx">
+                                        <a class="username <%= comment.account.highestRole %>" href="/profile?uid=<%= comment.uid %>">
+                                            <% if(comment.account.isOnline){ %>
+                                            <span class="online-icon"title="online"></span>
+                                            <% } %>
+                                            <%= comment.account.username %>
+                                        </a>
+                                        <span><span class="<% if(comment.account.reputation>0){ %>good<% } %><% if(comment.account.reputation<0){ %>bad<% } %>"><%= comment.account.reputation %></span> Reputation</span>
+                                    </p>
+                            <% } %>
+                                    <!--Reply Metadata-->
+                                    <div class="replycard" data-trid="<%= comment._id %>">
+                                        <div style="position: relative">
+                                            <p class="note">
+                                                <% if(ogTRID === comment._id){ %>
+                                                    <!--OP-->
+                                                    Posted 
+                                                <% } else if(lastCommenter === comment.uid){ %>
+                                                    <!--Previous replier, so stack-->
+                                                    Added
+                                                <% } else { %>
+                                                    <!--New reply-->
+                                                    Commented 
+                                                <% } %>
+                                                <!--When this reply was made-->
+                                                <script>document.write(TimeStamp.Beautify('<%= comment.date %>'))</script>
+                                            </p>
+                                        </div>
+                                        <!--Reply Content-->
+                                        <div class="replyEditor"></div>
+                                        <div 
+                                        class="thread_replycontent <% if(ogTRID !== comment._id){ %>limitReplyHeight<% } %>"
+                                        <% if(comment.reputation <= 0){ %>
+                                        onclick="warnLinks(event)"
+                                        <% } %>
+                                        ><%- comment.content %></div>
+                                        <div class="replyEditorControls hidden padding">
+                                            <button name="cancel" class="theme2 round border1 padding">Cancel</button>
+                                            <button name="save" class="theme2 round border1 padding">Save Changes</button>
+                                        </div>
+                                        <ul class="reply_menu verticalCenter gapchildrenx">
+                                            <li><p class="btnLikeReply verticalCenter <% if(comment.liked){ %>liked<% } %>" data-trid="<%= comment._id %>"><%= comment.likes %></p></li>
+                                            <% if(accInfo._id === comment.uid){ %>
+                                            <li onclick="EditReply(<%= comment._id %>)">Edit</li>
+                                            <% } %>
+                                            <% if(comment.deletable === true){ %>
+                                            <li><span class="red btn_deletereply" data-trid="<%= comment._id %>">X</span></li>
+                                            <% } %>
+                                        </ul>
+                                    </div>
+                            <!--Close reply group if the next replier is different-->
+                            <% if(nextCommentertUid !== comment.uid){ %>
+                                </div>
+                            </div>
+                            <% } %>
+                            <% lastCommenter = comment.uid %>
+                            <% lastCommentId = comment._id %>
+                            <% }) %>
+                        </div>
+                        <% if(obj.moreCommentsAvailable) { %>
+                        <button class="theme2 border1 round padding" onclick="LoadComments(this)">Load more</button>
+                        <% } %>
+                    </div>
+                    <% } %>
+                    <div class="hidden comment-creator padding lessgapchildren note">
+                        <div class="comment-creator-editor"></div>
+                        <div class="grecaptcha" data-sitekey="<%- process.env.CAPTCHA_SITEKEY %>"></div>
+                        <div class="commentControls verticalCenter gapchildrenx">
+                            <p name="cancel" class="cursorpointer">Cancel</p>
+                            <p name="post" class="cursorpointer">Post</p>
+                        </div>
+                    </div>
+                    <ul class="reply_menu padding verticalCenter gapchildrenx">
+                        <li><p class="btnLikeReply verticalCenter <% if(obj.liked){ %>liked<% } %>" data-trid="<%= obj._id %>"><%= obj.likes %></p></li>
+                        <% if(threadData.canReply){ %>
+                        <li onclick="AddComment(<%= obj._id %>)">Comment</li>
+                        <% } %>
+                        <% if(accInfo._id === obj.uid){ %>
+                        <li onclick="EditReply(<%= obj._id %>)">Edit</li>
+                        <% } %>
+                        <% if(obj.deletable === true){ %>
+                        <li><span class="red btn_deletereply" data-trid="<%= obj._id %>">X</span></li>
+                        <% } %>
+                    </ul>
+                </div>
+
+                <!--Close reply group if the next replier is different-->
+                <% if(nextUId !== obj.uid){ %>
+                    <% if(obj.account.signature){ %>
+                    <div class="signature theme2 padding"><%- obj.account.signature %></div>
+                    <% } %>
+                </div>
+                <% } %>
+                <% lastReplier = obj.uid %>
+                <% }) %>
+                <% if(threadData.canReply){ %>
+                <div id="replyform" class="theme1 round border1">
+                    <% if(!accInfo._id){ %>
+                    <a href="/login" class="requireLogin round">
+                        <p>Login to unlock the reply editor</p>
+                    </a>
+                    <% } %>
+                    <h2 class="padding">Add your reply</h2>
+                    <textarea id="editor"></textarea>
+                    <div class="lessgapchildren padding">
+                        <div class="grecaptcha" data-sitekey="<%- process.env.CAPTCHA_SITEKEY %>"></div>
+                        <button class="theme2 button" onclick="PostReply()">Post Reply</button>
+                        <p id="errormessage" style="color: var(--red); text-align: center"></p>
+                    </div>
+                </div>
+                <% } %>
+                <div style="text-align: right">
+                    <% if((threadData.currentPage - 1) > 0) { %>
+                    <a href="/t/<%= threadData._id %>?page=<%= threadData.currentPage - 1 %>" class="theme1 round border1 btn_newrelpy">Prev</a>
+                    <% } %>
+                    <% if(threadData.nextPageAvailable) { %>
+                    <a href="/t/<%= threadData._id %>?page=<%= threadData.currentPage + 1 %>" class="theme1 round border1 btn_newrelpy">Next</a>
+                    <% } %>
+                    <% if(threadData.nextPageAvailable) { %>
+                    <a href="/t/<%= threadData._id %>?page=<%= threadData.totalPages %>" class="theme1 round border1 btn_newrelpy">>>></a>
+                    <% } %>
+                </div>
+                <div class="theme2 border1 round gapchildren padding">
+                    <h3>Users viewing this thread:</h3>
+                    <% include ../partials/onlinelist %>
+                </div>
+            </main>
+            <% include ../partials/chatwindow %>
+		</div>
+		<% include ../partials/footer %>
+        
+        <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+        <script type="text/javascript" src="/js/prism.js"></script>
+        <script type="text/javascript" src="/js/oembed.js?v=22&v2=4&v2=1"></script>
+		<script>
+            //Link clicked from negative reputation user warning
+            function warnLinks(e) {
+                e.preventDefault()
+                if(e.target.nodeName  !== "A") return
+                if(selfURLRegex.test(e.target.href)) return
+                if(/^(https?:\/\/)?virustotal.com/.test(e.target.href)) return
+                var confirmed = confirm("WARNING: This user has a low reputation. Their links may be fake and lead lead to malware. Be cautious!");
+                confirmed && window.open(e.target, '_blank');
+            };
+
+            <% if(threadData.canChangeForum){ %>
+            function ToggleThreadLock(toggle){
+                fetch("/api/togglethreadlock", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        tid: "<%= threadData._id %>",
+                        toggle,
+                    })
+                })
+                .then(res => res.json())
+                .then(res => {
+                    if(res.success) location.reload()
+                    else {
+                        if(res.reason) alert("Error: " + res.reason)
+                        else alert("An unexpected error occured...")
+                    }
+                })
+                .catch(()=>alert("Failed to contact the server or an unexpected response was received..."))
+            }
+            <% } %>
+
+            <% if(clientIsMod){ %>
+            function ToggleThreadPin(toggle){
+                fetch("/api/togglethreadpin", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        tid: "<%= threadData._id %>",
+                        toggle,
+                    })
+                })
+                .then(res => res.json())
+                .then(res => {
+                    if(res.success) location.reload()
+                    else {
+                        if(res.reason) alert("Error: " + res.reason)
+                        else alert("An unexpected error occured...")
+                    }
+                })
+                .catch(()=>alert("Failed to contact the server or an unexpected response was received..."))
+            }
+            <% } %>
+
+            document.addEventListener('click', function (event) {
+                if (event.target.classList.contains('btnLikeReply')){
+                    let trid = event.target.getAttribute("data-trid")
+                    fetch("/api/togglelike", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({trid})
+                    })
+                    .then(res => res.json())
+                    .then(res => {
+                        if(res.success) {
+                            if(event.target.textContent < res.likes) event.target.classList.add("liked")
+                            else event.target.classList.remove("liked")
+                            event.target.textContent = res.likes
+                        }
+                        else {
+                            if(res.reason) alert("Error: " + res.reason)
+                            else alert("An unexpected error occured...")
+                        }
+                    })
+                    .catch(()=>alert("Failed to contact the server or an unexpected response was received..."))
+                }
+            })
+
+            $(document).ready(function(){
+                <% if(threadData.canChangeForum){ %>
+                $('#ForumChanger > div > button').click(function(){
+                    if(!$(this).attr('data-category')){
+                        //Ignore the cancel button
+                        return
+                    }
+
+                    fetch("/api/changethreadforum", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({
+                            tid: <%= threadData._id %>,
+                            forum: parseInt($(this).attr('data-category'))
+                        }),
+                    })
+                    .then(res => res.json())
+                    .then(res => {
+                        if(!res.success) return alert(res.reason || "Unknown server error occured")
+                        location.reload()
+                    })
+                    .catch(()=>alert("Failed to contact the server or an unexpected response was received..."))
+                })
+                <% } %>
+
+                $('.btn_deletereply').click(function(){
+                    if(!confirm("You are about to delete a reply.")) return
+
+                    var replyCard = $(this).closest(".replycard")
+                    var replyGroup = $(this).closest(".replygroup")
+                    
+                    fetch("/api/thread/reply", {
+                        method: "DELETE",
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({trid: $(this).attr('data-trid')}),
+                    })
+                    .then(res => res.json())
+                    .then(res => {
+                        if(!res.success) return alert(res.reason || "Unknown server error occured")
+                        
+                        if(res.deletedThread) document.location.href = "/";
+
+                        //removes the reply card
+                        replyCard.remove()
+                        //Removes the reply group if there is no more replies in the group
+                        if(replyGroup.find(".replycard").length <= 0) {
+                            if(replyGroup.parent().parent().hasClass("comments")) replyGroup.parent().parent().remove()
+                            else replyGroup.remove()
+                        }
+                    })
+                    .catch((e)=>{
+                        alert("Failed to contact the server or an unexpected response was received...")
+                        console.log(e)
+                    })
+                })
+            })
+
+            <% if(threadData.canEditTopic){ %>
+            document.getElementById("btnEditTopic").onclick = function(e){
+                var topicElement = document.getElementById("topic")
+                var newTopic = prompt("Edit your topic below:", topicElement.textContent)
+
+                fetch("/api/thread/topic", {
+                    method: "PATCH",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        tid: <%= threadData._id %>,
+                        topic: newTopic,
+                    })
+                })
+                .then(res => res.json())
+                .then(res => {
+                    if(res.success) {
+                        alert("Your topic has been edited")
+                        topicElement.textContent = newTopic
+                        document.title = newTopic
+                    }
+                    else {
+                        if(res.reason) alert("Error: " + res.reason)
+                        else alert("An unexpected error occured...")
+                    }
+                })
+                .catch(()=>alert("Failed to contact the server or an unexpected response was received..."))
+            }
+            <% } %>
+
+
+            /** Reply Creator **/
+
+            let tinymceOptions = {
+                menubar: false,
+                plugins: 'link hr lists codesample',
+                toolbar: 'bold italic underline strikethrough | alignleft aligncenter alignright | fontsizeselect forecolor | bullist numlist blockquote link hr codesample | undo redo',
+                height: 300,
+                content_style: "p {margin: 0}",
+                relative_urls: false,
+                remove_script_host : true,
+                codesample_languages: [
+                    { text: 'Lua', value: 'lua' },
+                    { text: 'C++', value: 'cpp' },
+                    { text: 'Rust', value: 'rust' },
+                    { text: 'C#', value: 'csharp' },
+                    { text: 'Python', value: 'python' },
+                    { text: 'PHP', value: 'php' },
+                    { text: 'JavaScript', value: 'javascript' },
+                    { text: 'HTML/XML', value: 'markup' },
+                    { text: 'CSS', value: 'css' },
+                ],
+                custom_colors: false,
+                color_map: [
+                    "CD201F", "Red",
+                    "E11D48", "Rose",
+                    "C0392B", "Pomegranate",
+                    "1ABC9C", "Turquoise",
+                    "2ECC71", "Emerland",
+                    "3498DB", "Peterriver",
+                    "2980B9", "Belizehole",
+                    "E67E22", "Carrot",
+                    "F1C40F", "Sunflower",
+                    "6D28D9", "Violet",
+                    "9333EA", "Purple",
+                    "C026D3", "Fuchsia",
+                    "34495E", "Wet Asphalt",
+                    "795548", "Brown",
+                ],
+                skin: "oxide-dark",
+                content_css: "/css/main.css,/css/themes/night.css?v=22,/css/tinymce.css",
+                placeholder: "What valuable response do you have?"
+            }
+
+            let replyCreatorEditor
+            let newReplyCaptchaId
+            tinymce.init({
+                ...tinymceOptions, 
+                selector: '#editor',
+                setup: function(editor) {
+                    editor.on('Paste Change input Undo Redo SetContent', function (event) {
+                        //Renders captcha only when the user begins to type
+                        if(newReplyCaptchaId === undefined) newReplyCaptchaId = grecaptcha.render(document.querySelector('#replyform .grecaptcha'), {theme: "dark"})
+                    });
+                }
+            })
+            .then(r => {
+                replyCreatorEditor = r[0]
+            })
+
+            function PostReply(){
+                fetch('/api/thread/reply', {
+					method: "POST",
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+					body: JSON.stringify({
+                        'g-recaptcha-response': grecaptcha.getResponse(newReplyCaptchaId),
+                        content: replyCreatorEditor.getContent(),
+                        tid: '<%= threadData._id %>'
+                    }),
+				})
+				.then(res => res.json())
+                .then(res => {
+                    if(res.success){
+                        saveDraft = false
+                        localStorage.removeItem('reply-draft');
+                        document.location.href = `/t/<%= threadData._id %>?r=${res.replyId}`
+                    } else {
+                        document.getElementById('errormessage').innerHTML = res.reason || 'Unknown error occured...'
+                    }
+                })
+				.catch(()=>document.getElementById('errormessage').innerHTML = "Failed to contact the server.")
+
+				grecaptcha.reset(newReplyCaptchaId);
+			}
+            
+            /* Drafts */
+            var saveDraft = true
+
+            //Load draft
+            var draft = JSON.parse(localStorage.getItem("reply-draft"))
+            if(draft && (draft.tid === <%= threadData._id %>)) document.getElementById("editor").value = draft.content
+            else localStorage.removeItem('reply-draft')
+
+            //Save draft on abrupt exit
+            window.onbeforeunload = function () {
+                if(!saveDraft) return
+                let content = replyCreatorEditor.getContent()
+
+                //Don't cache possibly incomplete replies
+                if(content.length < 10) return localStorage.removeItem('reply-draft')
+
+                if(content) localStorage.setItem('reply-draft', JSON.stringify({tid: <%= threadData._id %>, content}))
+                else localStorage.removeItem('reply-draft')
+            };
+
+
+            /** Reply Editor **/
+
+
+            async function EditReply(trid){
+                let replyCard = document.querySelector(`.replycard[data-trid="${trid}"]`)
+                let replyEditor = replyCard.querySelector('.replyEditor')
+                let thread_replycontent = replyCard.querySelector(".thread_replycontent")
+                let originalReplyHTML = thread_replycontent.innerHTML
+                let replyEditorControls = replyCard.querySelector('.replyEditorControls')
+                let replyId = replyCard.getAttribute('data-trid')
+
+                let dbReplyHTML = await fetch(`/api/thread/reply?trid=${replyId}`, {
+                    method: "GET",
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                })
+                .then(res => res.json())
+                .then(res => {
+                    if(res.success){
+                        return res.html
+                    } 
+                    else {
+                        return res.reason || 'Unknown error occured...'
+                    }
+                })
+                .catch(() => "Failed to contact the server.")
+
+                //Hide actual reply
+                thread_replycontent.classList.add("hidden")
+
+                // Display editor
+                let selector = `.replycard[data-trid="${trid}"] .replyEditor`
+                let editor = await tinymce.init({
+                    ...tinymceOptions, 
+                    selector,
+                })
+                .then(r => r[0])
+
+                //Show editor controls
+                replyEditorControls.classList.remove("hidden")
+
+                editor.setContent(dbReplyHTML)
+
+                //Handle cancel button
+                replyEditorControls.querySelector('button[name="cancel"]').onclick = () => {
+                    editor.remove()
+                    replyEditorControls.classList.add("hidden")
+                    replyEditor.innerHTML = ""
+                    thread_replycontent.classList.remove("hidden")
+                }
+
+                //Handle save button
+                replyEditorControls.querySelector('button[name="save"]').onclick = () => {
+                    let content = editor.getContent()
+
+                    fetch('/api/r/edit', {
+                        method: "POST",
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            content,
+                            trid: replyId,
+                        }),
+                    })
+                    .then(res => res.json())
+                    .then(res => {
+                        if(res.success){
+                            document.location.reload()
+                        } 
+                        else {
+                            alert(res.reason || 'Unknown error occured...')
+                        }
+                    })
+                    .catch(()=>alert("Failed to contact the server."))
+                }
+            }
+
+
+            /** Comment Creator **/
+
+            async function AddComment(trid){
+                let replyCard = document.querySelector(`.replycard[data-trid="${trid}"]`)
+                let commentCreator = replyCard.querySelector('.comment-creator')
+
+                //Don't reexecute if the comment creator is already shown
+                if(!commentCreator.classList.contains('hidden')) return
+
+                commentCreator.classList.remove('hidden')
+                
+                let selector = `.replycard[data-trid="${trid}"] .comment-creator-editor`
+                let editor = await tinymce.init({
+                    ...tinymceOptions, 
+                    toolbar: 'bold italic underline strikethrough forecolor | bullist numlist link codesample | undo redo',
+                    selector,
+                    setup: function(editor) {
+                        editor.on('Paste Change input Undo Redo', function () {
+                            //Renders captcha only when the user begins to type
+                            if(!commentCreator.getAttribute("data-captchaId")) {
+                                let captchaId = grecaptcha.render(commentCreator.querySelector('.grecaptcha'), {theme: "dark"})
+                                commentCreator.setAttribute("data-captchaId", captchaId)
+                            }
+                        });
+                    },
+                })
+                .then(r => r[0])
+
+                let btnPost = replyCard.querySelector('.commentControls [name="post"]')
+                btnPost.onclick = function(){
+                    fetch('/api/thread/reply', {
+                        method: "POST",
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            'g-recaptcha-response': grecaptcha.getResponse(commentCreator.getAttribute("data-captchaId")),
+                            content: editor.getContent(),
+                            trid,
+                        }),
+                    })
+                    .then(res => res.json())
+                    .then(res => {
+                        if(!res.success) return alert(res.reason || 'Unknown error occured...')
+                        document.location.href = `/t/<%= threadData._id %>?r=${res.replyId}`
+                    })
+                    .catch(() => alert("Failed to contact the server."))
+
+                    grecaptcha.reset(commentCreator.getAttribute("data-captchaId"));
+                }
+
+                let btnCancel = replyCard.querySelector('.commentControls [name="cancel"]')
+                btnCancel.onclick = function(){
+                    commentCreator.classList.add("hidden")
+                    editor.remove()
+                    if(commentCreator.getAttribute("data-captchaId")) grecaptcha?.reset(commentCreator.getAttribute("data-captchaId"))
+                }
+            }
+
+            async function LoadComments(buttonElem){
+                let commentGroups = buttonElem.parentElement.querySelector(".commentGroups")
+                let lastCommentGroup = commentGroups.querySelector(".replygroup:last-of-type")
+                let lastCommenter = lastCommentGroup.querySelector(".commentPfp").getAttribute("href").match(/\d+/)[0]
+                let lastCommentId = lastCommentGroup.querySelector(".replycard:last-of-type").getAttribute("data-trid")
+
+                let res = await fetch(`/api/thread/comments?tid=<%= threadData._id %>&fromId=${lastCommentId}`, {
+                    method: "GET",
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                })
+                .then(res => res.json())
+                .catch(()=>document.getElementById('errormessage').innerHTML = "Failed to contact the server.")
+
+                if(!res.success) return alert(res.reason || 'Unknown error occured...')
+
+                let comments = res.comments
+                if(!res.moreAvailable) buttonElem.remove()
+                
+                comments.forEach((comment, index) => {
+                    let nextCommentertUid = comments[index+1]?.uid
+
+                    let appendHTML = ""
+
+                    //Open new reply group if previous replier is different
+                    if(lastCommenter != comment.uid) {
+                        appendHTML += `
+                        <div class="comment replygroup">
+                            <a class="commentPfp" style="background-image: url('${comment.account.profilepicture}')" href="/profile?uid=${comment.uid}"></a>
+                            <div>
+                                <p class="verticalCenter lessgapchildrenx">
+                                    <a class="username ${comment.account.highestRole}" href="/profile?uid=${comment.uid}">
+                                        ${comment.account.isOnline ? '<span class="online-icon"title="online"></span>' : '' }
+                                        ${comment.account.username}
+                                    </a>
+                                    <span><span class="${comment.account.reputation>0 ? "good" : ""}${comment.account.reputation < 0 ? "bad" : ""}">${comment.account.reputation}</span> Reputation</span>
+                                </p>
+                        `
+                    }
+                    appendHTML += `
+                                <!--Reply Metadata-->
+                                <div class="replycard" data-trid="${comment._id}">
+                                    <div style="position: relative">
+                                        <p class="note">
+                                            ${lastCommenter == comment.uid ? "Added" : "Commented"}
+                                            ${TimeStamp.Beautify(comment.date)}
+                                        </p>
+                                    </div>
+                                    <!--Reply Content-->
+                                    <div class="replyEditor"></div>
+                                    <div 
+                                    class="thread_replycontent limitReplyHeight"
+                                    ${comment.reputation <= 0 ? 'onclick="warnLinks(event)"' : ""}
+                                    >${comment.content}</div>
+                                    <div class="replyEditorControls hidden padding">
+                                        <button name="cancel" class="theme2 round border1 padding">Cancel</button>
+                                        <button name="save" class="theme2 round border1 padding">Save Changes</button>
+                                    </div>
+                                    <ul class="reply_menu verticalCenter gapchildrenx">
+                                        <li><p class="btnLikeReply verticalCenter ${comment.liked ? "liked" : ""}" data-trid="${comment._id}">${comment.likes}</p></li>
+                                        ${"<%= accInfo._id %>" == comment.uid ? `<li onclick="EditReply(${comment._id})">Edit</li>` : ''}
+                                        ${ comment.deletable == true ? `<li><span class="red btn_deletereply" data-trid="${comment._id}">X</span></li>` : ''}
+                                    </ul>
+                                </div>
+                    `
+                    //Close reply group if the next replier is different
+                    if(nextCommentertUid != comment.uid){
+                        appendHTML += `
+                            </div>
+                        </div>
+                        `
+                    }
+
+                    if(lastCommenter != comment.uid) commentGroups.innerHTML += appendHTML
+                    else lastCommentGroup.querySelector("* > div").innerHTML += appendHTML
+
+                    lastCommentGroup = commentGroups.querySelector(".replygroup:last-of-type")
+                    lastCommenter = comment.uid
+                    lastCommentId = comment._id
+                })
+            }
+
+            document.querySelector("body").onload = function(){
+                <% if(threadData.scrollToTrid) { %>
+                //Scrolls to reply from notification
+                let replyToView = document.querySelector('[data-trid="<%= threadData.scrollToTrid %>"]')
+                if(replyToView) replyToView.scrollIntoView(true)
+                <% } %>
+
+                //Embed images in thread and signature content
+                Array.prototype.forEach.call([...document.getElementsByClassName("thread_replycontent"), ...document.getElementsByClassName("signature")], function(threadReply){
+                    HTMLToOembed(threadReply, { fileDomainWhitelist: true })
+                })
+            }
+        </script>
+	</body>
+</html>

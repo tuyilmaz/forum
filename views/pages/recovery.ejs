@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no, maximum-scale=1, user-scalable=0">
+		<meta name="keywords" content="Exploits, dll, hacks, cheats, developers, social, media" />
+        <meta name="description" content="Forgot your password or username for your <%- powForum.name %> account? Recover your account here!" />
+	
+		<title>Account Recovery - <%- powForum.name %></title>
+		
+		<% include ../partials/headimps %>
+        <link href="/css/recovery.css?v=22" rel="stylesheet" type="text/css">
+        
+		<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+        <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?compat=recaptcha" async defer></script>
+	</head>
+	<body class="container">
+        <main style="display: flex; min-height: 100vh;">
+            <div id="registerform" class="theme1 round border1 padding gapchildren">
+                <div class="descriptor">
+                    <h1><%- powForum.name %> Account Recovery</h1>
+                    <p>Fill in only one field</p>
+                </div>
+                <div class="register_inputfield lessgapchildren">
+                    <p>Forgot your username? Enter your email</p>
+                    <input id="email" class="theme2 border1 round padding" type="email" placeholder="Email" autoComplete="off"/>
+                    <div class="register_highlight"></div>
+                </div>
+                <p style="text-align: center"> OR </p>
+                <div class="register_inputfield lessgapchildren">
+                    <p>Forgot your password? Enter your username</p>
+                    <input id="username" class="theme2 border1 round padding" type="text" placeholder="Username" autoComplete="off"/>
+                    <div class="register_highlight"></div>
+                </div>
+                <div class="g-recaptcha" data-sitekey="<%- process.env.CAPTCHA_SITEKEY %>"></div>
+                <button class="theme2 border1 round padding" onclick="RequestRecovery()">Submit</button>
+                <a href="/login">Back to Login</a>
+                <p id="req_Response" style="text-align: center; color: var(--red);"></p>
+            </div>
+		</main>
+        
+		<script>
+            function RequestRecovery(){
+                var postData = {
+                    grecaptcharesponse: grecaptcha.getResponse(),
+                }
+
+                let req_Response = document.getElementById('req_Response')
+                var username = $("#username").val()
+                var email = $("#email").val()
+
+                if(username.length > 0 && email.length > 0){
+                    req_Response.innerHTML = "Only 1 fields can be filled"
+                    return
+                } else {
+                    if(username.length > 0){
+                        postData.username = username
+                    } else if(email.length > 0){
+                        postData.email = email
+                    } else {
+                        req_Response.innerHTML = "One of the fields must be filled"
+                        return
+                    }
+                }
+
+                fetch('/api/account/recovery', {
+					method: "POST",
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+					body: JSON.stringify(postData),
+				})
+				.then(res => res.json())
+                .then(res => {
+                    if(res.success){
+                        req_Response.style.color = "green"
+                        req_Response.innerHTML = 'Email sent.'
+                    } 
+                    else {
+                        req_Response.innerHTML = res.reason || 'Unknown error occured...'
+                    }
+                })
+				.catch((e)=>{
+                    console.error(e)
+                    document.getElementById('req_Response').innerHTML = "Failed to contact the server."
+                })
+
+				grecaptcha.reset();
+			}
+		</script>
+	</body>
+</html>
